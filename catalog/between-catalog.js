@@ -105,10 +105,13 @@
       'шипрфужер':  '#8C9B82',
       'шипр':       '#8C9B82',
     },
-    veilEnabled:  true,        // притемнять соседей при наведении/тапе
-    haloEnabled:  true,        // цветной ореол вокруг картинки
-    haloAlways:   0.35,        // яркость ореола в покое (0..1)
-    haloActive:   0.85,        // яркость ореола при наведении/тапе
+    /* -- подсветка по семействам (вуаль multiply + ореол + полоска, всё на картинке) --
+       Включается автоматически, если у семейства задан цвет в familyColors.
+       Силу правьте прямо в CSS-слоях .bt-veil (значения из исходного каталога). */
+    veilEnabled:  true,        // вуаль/ореол/полоска по семействам
+    haloEnabled:  true,        // (зарезервировано)
+    haloAlways:   0.35,        // (зарезервировано)
+    haloActive:   0.85,        // (зарезервировано)
 
     /* -- ФИЛЬТРЫ -- */
     filters:      [],
@@ -417,13 +420,15 @@
     var eager = index < cfg.eagerCount;
     var color = familyColor(item);
 
-    // ореол и вуаль задаём переменными на самой карточке
+    // класс семейства вешаем на ОБЁРТКУ картинки — на ней живут все три слоя:
+    // вуаль (::after, multiply), ореол (box-shadow), полоска (::before).
+    // Ровно как в исходном коде каталога.
+    var famClass = color ? ' bt-veil bt-fam' : '';
     var styleVars = '';
     if (color) {
-      styleVars = ' style="--fam:' + color + '; --fam-rgb:' + hexToRgb(color) + ';"';
+      styleVars = ' style="--fam:' + color + '; --fam-rgb:' + hexToRgb(color)
+                + '; --veil:' + hexToRgb(color) + ';"';
     }
-
-    var halo = (cfg.haloEnabled && color) ? '<span class="bt-card__halo" aria-hidden="true"></span>' : '';
 
     var media = item.image
       ? '<img class="bt-card__img" src="' + esc(item.image) + '" alt="' + esc(item.title) + '"'
@@ -446,7 +451,7 @@
 
     return '<article class="bt-card" data-id="' + esc(item.id) + '"' + styleVars + '>'
          +   '<button class="bt-card__open" type="button" aria-label="' + esc(item.title) + '">'
-         +     '<span class="bt-card__media">' + halo + media + '</span>'
+         +     '<span class="bt-card__media' + famClass + '">' + media + '</span>'
          +     '<span class="bt-card__body">'
          +       '<span class="bt-card__title">' + esc(item.title) + '</span>'
          +       (item.descr ? '<span class="bt-card__descr">' + esc(item.descr) + '</span>' : '')
@@ -793,9 +798,6 @@
       '  border-radius:' + cfg.cardRadius + 'px; overflow:hidden; box-shadow:0 8px 24px rgba(90,65,65,0.06);',
       '  transition:transform .35s cubic-bezier(0.16,1,0.3,1), box-shadow .35s ease, filter .35s ease; }',
       lift,
-      /* затемнение низа — псевдоэлемент поверх, под текст и кнопку он не лезет (кнопка выше по z) */
-      '.bt-card::after { content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;',
-      '  background:' + shade + '; z-index:1; }',
 
       '.bt-card__open { display:flex; flex-direction:column; flex:1 1 auto; width:100%; text-align:left;',
       '  background:none; border:none; padding:0; cursor:pointer; position:relative; z-index:2; font:inherit; color:inherit; }',
@@ -804,12 +806,32 @@
       '.bt-card__img { display:block; width:100%; aspect-ratio:1/1; object-fit:' + cfg.imageFit + ';',
       '  border-radius:' + cfg.imageRadius + 'px; background:rgba(140,120,110,0.08); position:relative; z-index:1; }',
 
-      /* ОРЕОЛ: цветное свечение под картинкой, виден всегда, ярче при наведении/тапе */
-      '.bt-card__halo { position:absolute; left:' + cfg.imagePad + 'px; right:' + cfg.imagePad + 'px;',
+      /* ============ ПОДСВЕТКА ПО СЕМЕЙСТВАМ (как в исходном коде) ============
+         Все три слоя — на обёртке картинки .bt-card__media.bt-veil.
+         ВУАЛЬ (::after): цветной multiply поверх картинки, в покое НАКРЫВАЕТ,
+         при наведении/тапе РАСХОДИТСЯ (opacity->0) — картинка проясняется. */
+      '.bt-veil::after { content:""; position:absolute; left:' + cfg.imagePad + 'px; right:' + cfg.imagePad + 'px;',
       '  top:' + cfg.imagePad + 'px; bottom:' + cfg.imagePad + 'px; border-radius:' + cfg.imageRadius + 'px;',
-      '  z-index:0; pointer-events:none; opacity:' + cfg.haloAlways + ';',
-      '  transition:opacity .4s ease, box-shadow .4s ease;',
-      '  box-shadow:0 10px 44px 6px rgba(var(--fam-rgb),0.6); }',
+      '  pointer-events:none; opacity:1; z-index:2; mix-blend-mode:multiply;',
+      '  transition:opacity .6s cubic-bezier(0.16,1,0.3,1);',
+      '  background:linear-gradient(160deg, rgba(var(--veil),0.42), rgba(var(--veil),0.26)); }',
+      '@media (hover:hover){ .bt-card:hover .bt-veil::after { opacity:0; } }',
+      '.bt-card--active .bt-veil::after { opacity:0; }',
+
+      /* ОРЕОЛ: цветное свечение вокруг картинки, виден всегда, ярче при наведении/тапе */
+      '.bt-veil { transition:box-shadow .5s ease; border-radius:' + cfg.imageRadius + 'px; }',
+      '.bt-veil::before, .bt-veil::after { border-radius:' + cfg.imageRadius + 'px; }',
+      '.bt-card__media.bt-veil { box-shadow:0 6px 30px 4px rgba(var(--fam-rgb),0.55); }',
+      '@media (hover:hover){ .bt-card:hover .bt-card__media.bt-veil { box-shadow:0 8px 40px 8px rgba(var(--fam-rgb),0.78); } }',
+      '.bt-card--active .bt-card__media.bt-veil { box-shadow:0 8px 40px 8px rgba(var(--fam-rgb),0.78); }',
+
+      /* ПОЛОСКА под картинкой: градиент цвета семейства, расширяется при наведении */
+      '.bt-card__media.bt-veil::before { content:""; position:absolute; left:24%; right:24%;',
+      '  bottom:' + (cfg.imagePad - 5) + 'px; height:3px; border-radius:3px; z-index:3; pointer-events:none;',
+      '  transition:left .4s ease, right .4s ease, height .4s ease;',
+      '  background:linear-gradient(90deg, transparent, var(--fam), transparent); }',
+      '@media (hover:hover){ .bt-card:hover .bt-card__media.bt-veil::before { left:12%; right:12%; height:4px; } }',
+      '.bt-card--active .bt-card__media.bt-veil::before { left:12%; right:12%; height:4px; }',
 
       '.bt-card__body { display:flex; flex-direction:column; flex:1 1 auto;',
       '  padding:0 ' + cfg.cardPadding + 'px ' + (cfg.cardPadding + 4) + 'px; position:relative; z-index:2; }',
@@ -841,15 +863,6 @@
       '  box-shadow:inset 0 2px 6px rgba(90,65,65,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 1px rgba(255,255,255,0.22); }',
       '.bt-cta--popup { margin:22px 0 0; }',
 
-      /* ВУАЛЬ: при наведении на карточку соседей слегка ПРИПУДРИВАЕМ (молочная поволока),
-         а не гасим — цвет сохраняется, теряется только резкость */
-      cfg.veilEnabled ? '@media (hover:hover){ .bt-grid:hover .bt-card:not(:hover) { opacity:0.72; filter:saturate(0.96); } }' : '',
-      /* при наведении/тапе — ореол ярче */
-      '@media (hover:hover){ .bt-card:hover .bt-card__halo { opacity:' + cfg.haloActive + ';',
-      '  box-shadow:0 14px 54px 8px rgba(var(--fam-rgb),0.95); } }',
-      '.bt-card--active .bt-card__halo { opacity:' + cfg.haloActive + ';',
-      '  box-shadow:0 14px 54px 8px rgba(var(--fam-rgb),0.95); }',
-
       /* заглушки */
       '.bt-card--ghost { box-shadow:none; }',
       '.bt-card--ghost::after { display:none; }',
@@ -878,9 +891,16 @@
       '  background:#FBF8F5; border-radius:24px; padding:0 0 30px; box-shadow:0 30px 80px rgba(44,36,32,0.4);',
       '  opacity:0; animation:bt-pop .35s cubic-bezier(0.16,1,0.3,1) forwards; }',
       '.bt-popup__box[data-fam="1"] { box-shadow:0 30px 80px rgba(44,36,32,0.4), 0 0 0 1px rgba(var(--fam-rgb),0.3); }',
-      '.bt-popup__close { position:absolute; top:14px; right:14px; z-index:2; width:38px; height:38px; border-radius:100px;',
-      '  border:none; cursor:pointer; font-size:26px; line-height:1; color:' + cfg.colorText + ';',
-      '  background:rgba(255,255,255,0.75); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }',
+      '.bt-popup__close { position:absolute; top:14px; right:14px; z-index:2; width:40px; height:40px; border:none; border-radius:100px;',
+      '  cursor:pointer; font-size:22px; line-height:1; color:' + cfg.colorText + '; -webkit-tap-highlight-color:transparent;',
+      '  background:rgba(255,255,255,0.10); -webkit-backdrop-filter:blur(14px) saturate(1.5) brightness(1.06);',
+      '  backdrop-filter:blur(14px) saturate(1.5) brightness(1.06);',
+      '  box-shadow:0 8px 32px rgba(90,65,65,0.10), inset 0 1px 0 rgba(255,255,255,0.55), 0 0 0 1px rgba(255,255,255,0.30);',
+      '  transition:all .3s cubic-bezier(0.16,1,0.3,1); }',
+      '.bt-popup__close:focus { outline:none; }',
+      '.bt-popup__close:focus-visible { outline:none; box-shadow:0 8px 32px rgba(90,65,65,0.10), inset 0 1px 0 rgba(255,255,255,0.6), 0 0 0 2px rgba(107,79,79,0.35); }',
+      '@media (hover:hover){ .bt-popup__close:hover { background:rgba(255,255,255,0.18); } }',
+      '.bt-popup__close:active { transform:scale(0.94); box-shadow:inset 0 2px 6px rgba(90,65,65,0.18); }',
       '.bt-popup__media { padding:14px 14px 0; }',
       '.bt-popup__media img { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:' + cfg.imageRadius + 'px; }',
       '.bt-popup__box[data-fam="1"] .bt-popup__media img { box-shadow:0 10px 40px rgba(var(--fam-rgb),0.5); }',
@@ -915,8 +935,6 @@
       '    animation:bt-sheet .35s cubic-bezier(0.16,1,0.3,1) forwards; }',
       '  .bt-popup__body { padding:20px 20px 0; }',
       '  .bt-popup__title { font-size:26px; }',
-      /* на телефоне карточки идут по одной — затемнение низа не нужно */
-      '  .bt-card::after { display:none; }',
       /* iOS: blur поверх контента даёт молочную пелену — на телефоне только затемнение, без blur */
       '  .bt-popup__overlay { -webkit-backdrop-filter:none; backdrop-filter:none; background:rgba(44,36,32,0.55); }',
       '}',
@@ -926,7 +944,7 @@
       '@keyframes bt-sheet { from { transform:translateY(100%); opacity:1;} to { transform:translateY(0); opacity:1;} }',
 
       '@media (prefers-reduced-motion:reduce) {',
-      '  .bt-card, .bt-card--ghost, .bt-drop__panel, .bt-drop__arrow, .bt-card__halo,',
+      '  .bt-card, .bt-card--ghost, .bt-drop__panel, .bt-drop__arrow, .bt-veil, .bt-veil::after, .bt-veil::before,',
       '  .bt-popup__overlay, .bt-popup__box { transition:none; animation:none; } }',
     ].join('\n');
 
