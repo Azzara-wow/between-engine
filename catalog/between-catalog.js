@@ -860,9 +860,9 @@
       /* ============ ПОПАП ============ */
       '.bt-popup { position:fixed; inset:0; z-index:1000; display:none; }',
       '.bt-popup--open { display:block; }',
-      '.bt-popup__overlay { position:absolute; inset:0; background:rgba(44,36,32,0.5);',
+      '.bt-popup__overlay { position:absolute; inset:0; z-index:1; background:rgba(44,36,32,0.5);',
       '  -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); opacity:0; animation:bt-fade .3s forwards; }',
-      '.bt-popup__box { position:absolute; left:50%; top:50%; transform:translate(-50%,-48%);',
+      '.bt-popup__box { position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-48%);',
       '  width:calc(100% - 40px); max-width:560px; max-height:88vh; overflow-y:auto;',
       '  background:#FBF8F5; border-radius:24px; padding:0 0 30px; box-shadow:0 30px 80px rgba(44,36,32,0.4);',
       '  opacity:0; animation:bt-pop .35s cubic-bezier(0.16,1,0.3,1) forwards; }',
@@ -900,16 +900,19 @@
       '  .bt-drop__done { margin-top:10px; padding:13px; font-size:12px; }',
       /* попап как шторка снизу */
       '  .bt-popup__box { left:0; top:auto; bottom:0; transform:none; width:100%; max-width:none;',
-      '    max-height:92vh; border-radius:24px 24px 0 0; animation:bt-sheet .35s cubic-bezier(0.16,1,0.3,1) forwards; }',
+      '    max-height:92vh; border-radius:24px 24px 0 0; opacity:1;',
+      '    animation:bt-sheet .35s cubic-bezier(0.16,1,0.3,1) forwards; }',
       '  .bt-popup__body { padding:20px 20px 0; }',
       '  .bt-popup__title { font-size:26px; }',
       /* на телефоне карточки идут по одной — затемнение низа не нужно */
       '  .bt-card::after { display:none; }',
+      /* iOS: blur поверх контента даёт молочную пелену — на телефоне только затемнение, без blur */
+      '  .bt-popup__overlay { -webkit-backdrop-filter:none; backdrop-filter:none; background:rgba(44,36,32,0.55); }',
       '}',
 
       '@keyframes bt-fade { to { opacity:1; } }',
       '@keyframes bt-pop { from { opacity:0; transform:translate(-50%,-46%) scale(0.98);} to { opacity:1; transform:translate(-50%,-50%) scale(1);} }',
-      '@keyframes bt-sheet { from { transform:translateY(100%);} to { transform:translateY(0);} }',
+      '@keyframes bt-sheet { from { transform:translateY(100%); opacity:1;} to { transform:translateY(0); opacity:1;} }',
 
       '@media (prefers-reduced-motion:reduce) {',
       '  .bt-card, .bt-card--ghost, .bt-drop__panel, .bt-drop__arrow, .bt-card__halo,',
