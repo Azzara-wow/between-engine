@@ -940,6 +940,20 @@
       '}',
 
       '@keyframes bt-fade { to { opacity:1; } }',
+
+      /* ============ ПОДСВЕТКА НА ТАЧ-УСТРОЙСТВАХ (вариант А) ============
+         Наведения нет, поэтому вуаль держим ПОЛУРАСКРЫТОЙ (лёгкая тонировка,
+         картинку видно), а ореол и полоску — в ярком состоянии постоянно.
+         Карточки живые сразу, без тапа. (hover:none ловит именно тач.) */
+      '@media (hover: none) {',
+      '  .bt-veil::after { opacity:0.4; }',                          // вуаль лёгкая, не глухая
+      '  .bt-card__media.bt-veil { box-shadow:0 7px 34px 6px rgba(var(--fam-rgb),0.68); }',  // ореол ярче
+      '  .bt-card__media.bt-veil::before { left:14%; right:14%; height:4px; }',              // полоска шире
+      /* при касании вуаль дораскрывается — картинка на миг проясняется целиком */
+      '  .bt-card--active .bt-veil::after { opacity:0; }',
+      '  .bt-card--active .bt-card__media.bt-veil { box-shadow:0 9px 44px 9px rgba(var(--fam-rgb),0.85); }',
+      '}',
+
       '@keyframes bt-pop { from { opacity:0; transform:translate(-50%,-46%) scale(0.98);} to { opacity:1; transform:translate(-50%,-50%) scale(1);} }',
       '@keyframes bt-sheet { from { transform:translateY(100%); opacity:1;} to { transform:translateY(0); opacity:1;} }',
 
