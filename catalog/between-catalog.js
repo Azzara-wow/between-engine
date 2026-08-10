@@ -247,9 +247,15 @@
      БЛОК 5. ВЫПАДАШКИ
      ============================================================ */
 
-  function openDrop(key) { openKey = key; syncDrops(); }
-  function closeDrop()   { openKey = null; syncDrops(); }
+  function openDrop(key) { openKey = key; syncDrops(); lockScroll(true); }
+  function closeDrop()   { openKey = null; syncDrops(); lockScroll(false); }
   function toggleDrop(key) { if (openKey === key) closeDrop(); else openDrop(key); }
+
+  // на телефоне при открытой шторке гасим прокрутку фона
+  function lockScroll(on) {
+    if (!matchMedia('(max-width: 560px)').matches) return;
+    document.body.style.overflow = on ? 'hidden' : '';
+  }
 
   // показать/спрятать панели и повернуть стрелки, без перерисовки всего
   function syncDrops() {
@@ -387,6 +393,10 @@
          +     '<span class="bt-drop__arrow" aria-hidden="true"></span>'
          +   '</button>'
          +   '<div class="bt-drop__panel">'
+         +     '<div class="bt-drop__head">'
+         +       '<span class="bt-drop__title">' + esc(key) + '</span>'
+         +       '<button class="bt-drop__close" type="button" aria-label="Закрыть">&times;</button>'
+         +     '</div>'
          +     '<div class="bt-drop__opts">' + opts + '</div>'
          +     '<button class="bt-drop__done" type="button">' + esc(cfg.doneText) + '</button>'
          +   '</div>'
@@ -411,6 +421,9 @@
 
       var done = t.closest && t.closest('.bt-drop__done');
       if (done) { closeDrop(); return; }
+
+      var close = t.closest && t.closest('.bt-drop__close');
+      if (close) { closeDrop(); return; }
     });
 
     var reset = root.querySelector('.bt-reset');
@@ -530,6 +543,11 @@
       '  transition: opacity .2s, transform .2s, visibility .2s; }',
       '.bt-drop--open .bt-drop__panel { opacity: 1; visibility: visible; transform: translateY(0); }',
 
+      '.bt-drop__head { display: none; align-items: center; justify-content: space-between;',
+      '  padding: 2px 4px 12px; margin-bottom: 6px; border-bottom: 1px solid rgba(107,79,79,0.12); }',
+      '.bt-drop__title { font-family: ' + cfg.fontTitle + '; font-size: 22px; color: ' + cfg.colorText + '; }',
+      '.bt-drop__close { font-size: 28px; line-height: 1; color: ' + cfg.colorMuted + ';',
+      '  background: none; border: none; cursor: pointer; padding: 0 6px; }',
       '.bt-drop__opts { display: flex; flex-direction: column; gap: 2px;',
       '  max-height: 260px; overflow-y: auto; }',
       '.bt-opt { display: flex; align-items: center; gap: 10px; width: 100%;',
@@ -607,10 +625,23 @@
       '  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;',
       '  color: #F3EDE8; background: ' + cfg.colorAccent + '; }',
 
-      /* на телефоне выпадашка раскрывается на всю ширину строки фильтров */
+      /* на телефоне — не выпадашка, а ШТОРКА снизу поверх каталога */
       '@media (max-width: 560px) {',
-      '  .bt-drop { position: static; }',
-      '  .bt-drop__panel { left: 16px; right: 16px; min-width: 0; max-width: none; } }',
+      '  .bt-drops { gap: 8px; }',
+      /*   затемнение фона — рисуем на самой открытой шторке через ::before */
+      '  .bt-drop--open::before { content: ""; position: fixed; inset: 0; z-index: 90;',
+      '    background: rgba(44,36,32,0.38); }',
+      '  .bt-drop__panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 100;',
+      '    min-width: 0; max-width: none; border-radius: 22px 22px 0 0; padding: 16px 16px 20px;',
+      '    box-shadow: 0 -12px 40px rgba(44,36,32,0.22);',
+      '    transform: translateY(100%); }',
+      '  .bt-drop--open .bt-drop__panel { transform: translateY(0); }',
+      '  .bt-drop__head { display: flex; }',
+      '  .bt-drop__opts { max-height: 52vh; }',
+      '  .bt-opt { font-size: 16px; padding: 12px 10px; }',
+      '  .bt-opt__box { width: 22px; height: 22px; }',
+      '  .bt-opt--on .bt-opt__box::after { left: 7px; top: 2px; width: 6px; height: 12px; }',
+      '  .bt-drop__done { margin-top: 10px; padding: 13px; font-size: 12px; } }',
 
       /* hover-эффекты — ТОЛЬКО там, где есть настоящая мышь.',
          на телефоне это убирает застрявшую белую подсветку после тапа */
