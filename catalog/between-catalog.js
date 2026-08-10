@@ -1,37 +1,37 @@
 /* ============================================================
    BETWEEN — движок каталога (between-catalog.js)
    Часть 1 + 2: загрузка, карточки, сетка, адаптив, ФИЛЬТРЫ.
+   Фильтры — выпадающие списки (Семья ▾, Настроение ▾…),
+   пол — отдельный сегмент Она/Он/Все.
    Эффекты и попап — часть 3, позже.
 
    Куда класть:  between-engine → /catalog/between-catalog.js
    Как звать:    https://between-engine.pages.dev/catalog/between-catalog.js
 
    Настройка КОНКРЕТНОЙ страницы — в блоке T123 (window.BT_CATALOG).
-   Всё, что в БЛОКЕ 1, — общий стиль для всех страниц; настройка
-   страницы это перебивает.
+   Всё, что в БЛОКЕ 1, — общий стиль; настройка страницы перебивает.
    ============================================================ */
 
 (function () {
   'use strict';
 
   /* ============================================================
-     БЛОК 1. ОБЩИЕ НАСТРОЙКИ — стиль каталога Between
-     Правится руками. Действует на все страницы сразу.
+     БЛОК 1. ОБЩИЕ НАСТРОЙКИ
      ============================================================ */
 
   var DEFAULTS = {
 
     /* -- откуда берём данные -- */
     api:   'https://between-quiz.eaburdenko.workers.dev/catalog',
-    kind:  'perfume',            // perfume | aromadesign
-    mount: '#bt-catalog',        // куда рисовать
+    kind:  'perfume',
+    mount: '#bt-catalog',
 
     /* -- палитра -- */
-    colorText:   '#2C2420',      // названия, основной текст
-    colorMuted:  '#6A5E56',      // описания, подписи
-    colorAccent: '#6B4F4F',      // бордо
-    colorCard:   '#F3EFEB',      // фон карточки
-    colorBg:     'transparent',  // фон блока (обычно берём фон страницы)
+    colorText:   '#2C2420',
+    colorMuted:  '#6A5E56',
+    colorAccent: '#6B4F4F',
+    colorCard:   '#F3EFEB',
+    colorBg:     'transparent',
 
     /* -- шрифты -- */
     fontTitle: "'Cormorant Garamond', Georgia, serif",
@@ -42,9 +42,9 @@
              + '&display=swap',
 
     /* -- размеры -- */
-    titleSize:   20,   // название аромата, px
-    bodySize:    14,   // описание, px
-    metaSize:    11,   // подписи-характеристики, px
+    titleSize:   20,
+    bodySize:    14,
+    metaSize:    11,
     titleWeight: 500,
     bodyWeight:  400,
 
@@ -73,30 +73,23 @@
     note:        '',
 
     /* -- ФИЛЬТРЫ --
-       filters — список характеристик, по которым можно фильтровать,
-       В ТОМ ПОРЯДКЕ, как их показать. Пусто [] — фильтров нет.
-       Значения внутри каждой характеристики движок берёт сам из данных.
-
-       genderKey — характеристика «Пол». Она особая: жёсткий фильтр
-       Она/Он/Все (унисекс попадает в оба). НЕ дублируйте её в filters. */
-    filters:      [],            // напр. ['Семья', 'Настроение', 'Сезон']
+       filters — характеристики-фильтры В ТОМ ПОРЯДКЕ, как показать.
+       Каждая станет отдельной кнопкой-выпадашкой с галочками.
+       Значения движок берёт из данных сам. «Пол» тут НЕ пишем. */
+    filters:      [],
     genderKey:    'Пол',
-    genderValues: {              // как значения в данных зовут женское/мужское/унисекс
-      female: 'женский',
-      male:   'мужской',
-      unisex: 'унисекс',
-    },
+    genderValues: { female: 'женский', male: 'мужской', unisex: 'унисекс' },
     genderLabels: { all: 'Все', female: 'Для неё', male: 'Для него' },
-    filtersEnabled: true,        // выключатель всей панели фильтров
+    filtersEnabled: true,
 
     /* -- тексты -- */
-    loadingText: 'Собираем каталог…',
     errorText:   'Каталог не загрузился.',
     retryText:   'Попробовать снова',
     emptyText:   'Пока пусто.',
     emptyFilter: 'Под выбранные фильтры ничего не подошло.',
     resetText:   'Сбросить',
-    countText:   'Показано',     // «Показано 12»
+    countText:   'Показано',
+    doneText:    'Готово',        // кнопка закрытия выпадашки
   };
 
   var cfg = merge(DEFAULTS, window.BT_CATALOG || {});
@@ -107,10 +100,11 @@
      ============================================================ */
 
   var root   = null;
-  var ALL    = [];               // все ароматы, как пришли
-  var facets = {};               // сводка характеристик из данных
-  var gender = 'all';            // 'all' | 'female' | 'male'
-  var picked = {};               // { 'Семья': ['цветочный', ...], ... }
+  var ALL    = [];
+  var facets = {};
+  var gender = 'all';
+  var picked = {};               // { 'Семья': ['цветочный', ...] }
+  var openKey = null;            // какая выпадашка сейчас раскрыта
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
@@ -128,6 +122,14 @@
     root.className = 'bt-catalog';
     renderSkeleton();
     load(0);
+
+    // клик мимо раскрытой выпадашки — закрыть её
+    document.addEventListener('click', function (e) {
+      if (!openKey) return;
+      if (root.contains(e.target) && e.target.closest &&
+          e.target.closest('.bt-drop')) return;
+      closeDrop();
+    });
   }
 
 
@@ -168,19 +170,16 @@
      ============================================================ */
 
   function hasGender() {
-    return cfg.filtersEnabled
-        && cfg.genderKey
-        && facets[cfg.genderKey]
-        && facets[cfg.genderKey].length;
+    return cfg.filtersEnabled && cfg.genderKey
+        && facets[cfg.genderKey] && facets[cfg.genderKey].length;
   }
 
-  /* какие характеристики реально показываем как фильтры */
   function activeFilterKeys() {
     if (!cfg.filtersEnabled) return [];
     var out = [];
     for (var i = 0; i < cfg.filters.length; i++) {
       var key = cfg.filters[i];
-      if (key === cfg.genderKey) continue;          // пол отдельно
+      if (key === cfg.genderKey) continue;
       if (facets[key] && facets[key].length) out.push(key);
     }
     return out;
@@ -189,16 +188,13 @@
   function passesGender(item) {
     if (gender === 'all') return true;
     var values = (item.attrs && item.attrs[cfg.genderKey]) || [];
-    var want   = cfg.genderValues[gender];
-    var uni    = cfg.genderValues.unisex;
+    var want = cfg.genderValues[gender], uni = cfg.genderValues.unisex;
     for (var i = 0; i < values.length; i++) {
       if (values[i] === want || values[i] === uni) return true;
     }
     return false;
   }
 
-  /* внутри характеристики — ИЛИ (любое из выбранного),
-     между характеристиками — И (должны совпасть все группы) */
   function passesPicked(item) {
     for (var key in picked) {
       var chosen = picked[key];
@@ -221,6 +217,10 @@
     return out;
   }
 
+  function countFor(key) {
+    return (picked[key] && picked[key].length) || 0;
+  }
+
   function toggleValue(key, value) {
     if (!picked[key]) picked[key] = [];
     var idx = picked[key].indexOf(value);
@@ -230,15 +230,10 @@
     updateView();
   }
 
-  function setGender(g) {
-    gender = g;
-    updateView();
-  }
+  function setGender(g) { gender = g; updateView(); }
 
   function resetAll() {
-    gender = 'all';
-    picked = {};
-    updateView();
+    gender = 'all'; picked = {}; closeDrop(); updateView();
   }
 
   function anyPicked() {
@@ -249,7 +244,26 @@
 
 
   /* ============================================================
-     БЛОК 5. РИСОВАНИЕ
+     БЛОК 5. ВЫПАДАШКИ
+     ============================================================ */
+
+  function openDrop(key) { openKey = key; syncDrops(); }
+  function closeDrop()   { openKey = null; syncDrops(); }
+  function toggleDrop(key) { if (openKey === key) closeDrop(); else openDrop(key); }
+
+  // показать/спрятать панели и повернуть стрелки, без перерисовки всего
+  function syncDrops() {
+    var wraps = root.querySelectorAll('.bt-drop');
+    for (var i = 0; i < wraps.length; i++) {
+      var w = wraps[i];
+      var on = (w.dataset.key === openKey);
+      w.className = 'bt-drop' + (on ? ' bt-drop--open' : '');
+    }
+  }
+
+
+  /* ============================================================
+     БЛОК 6. РИСОВАНИЕ
      ============================================================ */
 
   function renderSkeleton() {
@@ -267,7 +281,6 @@
     root.innerHTML = noteHtml() + '<div class="bt-grid">' + cells + '</div>';
   }
 
-  /* полная перерисовка (после загрузки): фильтры + панель + сетка */
   function renderAll() {
     var html = noteHtml()
              + filtersHtml()
@@ -280,7 +293,6 @@
     updateView();
   }
 
-  /* лёгкая перерисовка (после клика по фильтру): только сетка, счётчик, активные теги */
   function updateView() {
     var items = filtered();
 
@@ -303,68 +315,104 @@
     var reset = root.querySelector('.bt-reset');
     if (reset) reset.style.display = anyPicked() ? 'inline-block' : 'none';
 
-    // подсветить активные теги
-    var chips = root.querySelectorAll('.bt-chip');
-    for (var c = 0; c < chips.length; c++) {
-      var ch = chips[c];
-      var on;
-      if (ch.dataset.gender) {
-        on = (ch.dataset.gender === gender);
-      } else {
-        var k = ch.dataset.key, v = ch.dataset.value;
-        on = !!(picked[k] && picked[k].indexOf(v) !== -1);
-      }
-      ch.className = 'bt-chip' + (on ? ' bt-chip--on' : '');
+    // сегмент пола
+    var gchips = root.querySelectorAll('.bt-gchip');
+    for (var g = 0; g < gchips.length; g++) {
+      var gc = gchips[g];
+      gc.className = 'bt-gchip' + (gc.dataset.gender === gender ? ' bt-gchip--on' : '');
+    }
+
+    // кнопки-выпадашки: показать счётчик выбранного и подсветить
+    var toggles = root.querySelectorAll('.bt-drop__toggle');
+    for (var t = 0; t < toggles.length; t++) {
+      var tg = toggles[t];
+      var key = tg.dataset.key;
+      var n = countFor(key);
+      var badge = tg.querySelector('.bt-drop__badge');
+      if (badge) badge.textContent = n ? String(n) : '';
+      tg.className = 'bt-drop__toggle' + (n ? ' bt-drop__toggle--on' : '');
+    }
+
+    // галочки внутри открытых панелей
+    var opts = root.querySelectorAll('.bt-opt');
+    for (var o = 0; o < opts.length; o++) {
+      var op = opts[o];
+      var k = op.dataset.key, v = op.dataset.value;
+      var on = !!(picked[k] && picked[k].indexOf(v) !== -1);
+      op.className = 'bt-opt' + (on ? ' bt-opt--on' : '');
     }
   }
 
   function filtersHtml() {
     if (!cfg.filtersEnabled) return '';
 
-    var groups = '';
+    var out = '';
 
-    // пол — отдельным сегментом
     if (hasGender()) {
-      groups += '<div class="bt-fgroup bt-fgroup--gender">'
-              +   '<button class="bt-chip" type="button" data-gender="all">'    + esc(cfg.genderLabels.all)    + '</button>'
-              +   '<button class="bt-chip" type="button" data-gender="female">' + esc(cfg.genderLabels.female) + '</button>'
-              +   '<button class="bt-chip" type="button" data-gender="male">'   + esc(cfg.genderLabels.male)   + '</button>'
-              + '</div>';
+      out += '<div class="bt-gender">'
+           +   '<button class="bt-gchip" type="button" data-gender="all">'    + esc(cfg.genderLabels.all)    + '</button>'
+           +   '<button class="bt-gchip" type="button" data-gender="female">' + esc(cfg.genderLabels.female) + '</button>'
+           +   '<button class="bt-gchip" type="button" data-gender="male">'   + esc(cfg.genderLabels.male)   + '</button>'
+           + '</div>';
     }
 
-    // остальные характеристики
     var keys = activeFilterKeys();
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      var chips = '';
-      var values = facets[key];
-      for (var j = 0; j < values.length; j++) {
-        var v = values[j].value;
-        chips += '<button class="bt-chip" type="button"'
-               + ' data-key="' + esc(key) + '" data-value="' + esc(v) + '">'
-               + esc(v) + '</button>';
+    if (keys.length) {
+      var drops = '';
+      for (var i = 0; i < keys.length; i++) {
+        drops += dropHtml(keys[i]);
       }
-      groups += '<div class="bt-fgroup">'
-              +   '<span class="bt-flabel">' + esc(key) + '</span>'
-              +   '<span class="bt-fchips">' + chips + '</span>'
-              + '</div>';
+      out += '<div class="bt-drops">' + drops + '</div>';
     }
 
-    if (!groups) return '';
-    return '<div class="bt-filters">' + groups + '</div>';
+    return out ? '<div class="bt-filters">' + out + '</div>' : '';
+  }
+
+  function dropHtml(key) {
+    var values = facets[key];
+    var opts = '';
+    for (var j = 0; j < values.length; j++) {
+      var v = values[j].value;
+      opts += '<button class="bt-opt" type="button"'
+            + ' data-key="' + esc(key) + '" data-value="' + esc(v) + '">'
+            + '<span class="bt-opt__box"></span>'
+            + '<span class="bt-opt__label">' + esc(v) + '</span>'
+            + '</button>';
+    }
+
+    return '<div class="bt-drop" data-key="' + esc(key) + '">'
+         +   '<button class="bt-drop__toggle" type="button" data-key="' + esc(key) + '">'
+         +     '<span class="bt-drop__name">' + esc(key) + '</span>'
+         +     '<span class="bt-drop__badge"></span>'
+         +     '<span class="bt-drop__arrow" aria-hidden="true"></span>'
+         +   '</button>'
+         +   '<div class="bt-drop__panel">'
+         +     '<div class="bt-drop__opts">' + opts + '</div>'
+         +     '<button class="bt-drop__done" type="button">' + esc(cfg.doneText) + '</button>'
+         +   '</div>'
+         + '</div>';
   }
 
   function bindFilters() {
-    // делегирование: один обработчик на всю панель
-    var panel = root.querySelector('.bt-filters');
-    if (panel) {
-      panel.addEventListener('click', function (e) {
-        var chip = e.target.closest ? e.target.closest('.bt-chip') : null;
-        if (!chip) return;
-        if (chip.dataset.gender) setGender(chip.dataset.gender);
-        else toggleValue(chip.dataset.key, chip.dataset.value);
-      });
-    }
+    var filters = root.querySelector('.bt-filters');
+    if (!filters) return;
+
+    filters.addEventListener('click', function (e) {
+      var t = e.target;
+
+      var gchip = t.closest && t.closest('.bt-gchip');
+      if (gchip) { setGender(gchip.dataset.gender); return; }
+
+      var toggle = t.closest && t.closest('.bt-drop__toggle');
+      if (toggle) { toggleDrop(toggle.dataset.key); return; }
+
+      var opt = t.closest && t.closest('.bt-opt');
+      if (opt) { toggleValue(opt.dataset.key, opt.dataset.value); return; }
+
+      var done = t.closest && t.closest('.bt-drop__done');
+      if (done) { closeDrop(); return; }
+    });
+
     var reset = root.querySelector('.bt-reset');
     if (reset) reset.addEventListener('click', resetAll);
   }
@@ -417,7 +465,7 @@
 
 
   /* ============================================================
-     БЛОК 6. СТИЛИ
+     БЛОК 7. СТИЛИ
      ============================================================ */
 
   function injectStyles() {
@@ -442,24 +490,66 @@
       '  font-weight: ' + cfg.bodyWeight + '; color: ' + cfg.colorMuted + ';',
       '  letter-spacing: .3px; margin: 0 0 24px; }',
 
-      /* -- фильтры -- */
-      '.bt-filters { display: flex; flex-direction: column; gap: 14px; margin: 0 0 18px; }',
-      '.bt-fgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }',
-      '.bt-flabel { font-size: ' + cfg.metaSize + 'px; letter-spacing: 1.4px;',
-      '  text-transform: uppercase; color: ' + cfg.colorMuted + '; opacity: .7;',
-      '  margin-right: 4px; min-width: 92px; }',
-      '.bt-fchips { display: flex; flex-wrap: wrap; gap: 8px; }',
+      /* -- панель фильтров -- */
+      '.bt-filters { margin: 0 0 16px; }',
 
-      '.bt-chip { font-family: ' + cfg.fontBody + '; font-size: 13px; font-weight: 400;',
-      '  color: ' + cfg.colorText + '; background: rgba(255,255,255,0.5);',
-      '  border: 1px solid rgba(107,79,79,0.18); border-radius: 100px;',
-      '  padding: 7px 15px; cursor: pointer; line-height: 1.2;',
-      '  transition: background .25s, color .25s, border-color .25s, transform .15s; }',
-      '.bt-chip:hover { background: rgba(255,255,255,0.85); transform: translateY(-1px); }',
-      '.bt-chip--on { background: ' + cfg.colorAccent + '; color: #F3EDE8;',
-      '  border-color: ' + cfg.colorAccent + '; }',
-      '.bt-fgroup--gender { gap: 6px; margin-bottom: 2px; }',
+      /* пол */
+      '.bt-gender { display: inline-flex; gap: 4px; padding: 4px;',
+      '  background: rgba(255,255,255,0.45); border-radius: 100px;',
+      '  border: 1px solid rgba(107,79,79,0.15); margin-bottom: 12px; }',
+      '.bt-gchip { font-family: ' + cfg.fontBody + '; font-size: 13px; color: ' + cfg.colorText + ';',
+      '  background: transparent; border: none; border-radius: 100px;',
+      '  padding: 7px 16px; cursor: pointer; line-height: 1.2; transition: background .2s, color .2s; }',
+      '.bt-gchip--on { background: ' + cfg.colorAccent + '; color: #F3EDE8; }',
 
+      /* ряд выпадашек */
+      '.bt-drops { display: flex; flex-wrap: wrap; gap: 8px; }',
+      '.bt-drop { position: relative; }',
+
+      '.bt-drop__toggle { display: inline-flex; align-items: center; gap: 7px;',
+      '  font-family: ' + cfg.fontBody + '; font-size: 13px; color: ' + cfg.colorText + ';',
+      '  background: rgba(255,255,255,0.55); border: 1px solid rgba(107,79,79,0.18);',
+      '  border-radius: 100px; padding: 8px 15px; cursor: pointer; line-height: 1.2;',
+      '  transition: background .2s, border-color .2s; }',
+      '.bt-drop__toggle--on { border-color: ' + cfg.colorAccent + '; }',
+      '.bt-drop__name { white-space: nowrap; }',
+      '.bt-drop__badge:not(:empty) { display: inline-flex; align-items: center; justify-content: center;',
+      '  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 100px;',
+      '  background: ' + cfg.colorAccent + '; color: #F3EDE8; font-size: 11px; }',
+      '.bt-drop__arrow { width: 0; height: 0; border-left: 4px solid transparent;',
+      '  border-right: 4px solid transparent; border-top: 5px solid ' + cfg.colorMuted + ';',
+      '  transition: transform .25s; }',
+      '.bt-drop--open .bt-drop__arrow { transform: rotate(180deg); }',
+
+      /* панель со списком */
+      '.bt-drop__panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;',
+      '  min-width: 180px; max-width: 260px; padding: 8px;',
+      '  background: #FBF8F5; border: 1px solid rgba(107,79,79,0.15);',
+      '  border-radius: 16px; box-shadow: 0 16px 40px rgba(90,65,65,0.16);',
+      '  opacity: 0; visibility: hidden; transform: translateY(-6px);',
+      '  transition: opacity .2s, transform .2s, visibility .2s; }',
+      '.bt-drop--open .bt-drop__panel { opacity: 1; visibility: visible; transform: translateY(0); }',
+
+      '.bt-drop__opts { display: flex; flex-direction: column; gap: 2px;',
+      '  max-height: 260px; overflow-y: auto; }',
+      '.bt-opt { display: flex; align-items: center; gap: 10px; width: 100%;',
+      '  font-family: ' + cfg.fontBody + '; font-size: 14px; color: ' + cfg.colorText + ';',
+      '  background: none; border: none; border-radius: 10px; padding: 9px 10px;',
+      '  cursor: pointer; text-align: left; transition: background .15s; }',
+      '.bt-opt:hover { background: rgba(107,79,79,0.06); }',
+      '.bt-opt__box { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 5px;',
+      '  border: 1.5px solid rgba(107,79,79,0.4); position: relative; transition: background .15s, border-color .15s; }',
+      '.bt-opt--on .bt-opt__box { background: ' + cfg.colorAccent + '; border-color: ' + cfg.colorAccent + '; }',
+      '.bt-opt--on .bt-opt__box::after { content: ""; position: absolute; left: 5px; top: 1px;',
+      '  width: 5px; height: 10px; border: solid #F3EDE8; border-width: 0 2px 2px 0; transform: rotate(45deg); }',
+      '.bt-opt__label { line-height: 1.2; }',
+
+      '.bt-drop__done { display: block; width: 100%; margin-top: 6px; padding: 9px;',
+      '  font-family: ' + cfg.fontBody + '; font-size: 11px; letter-spacing: 1.2px;',
+      '  text-transform: uppercase; color: #F3EDE8; background: ' + cfg.colorAccent + ';',
+      '  border: none; border-radius: 10px; cursor: pointer; }',
+
+      /* строка счётчика */
       '.bt-bar { display: flex; align-items: center; justify-content: space-between;',
       '  gap: 12px; margin: 0 0 20px; }',
       '.bt-count { font-size: ' + cfg.metaSize + 'px; letter-spacing: 1.2px;',
@@ -517,12 +607,20 @@
       '  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;',
       '  color: #F3EDE8; background: ' + cfg.colorAccent + '; }',
 
-      /* на узком экране подпись характеристики встаёт над тегами */
+      /* на телефоне выпадашка раскрывается на всю ширину строки фильтров */
       '@media (max-width: 560px) {',
-      '  .bt-flabel { min-width: 100%; margin-bottom: 2px; } }',
+      '  .bt-drop { position: static; }',
+      '  .bt-drop__panel { left: 16px; right: 16px; min-width: 0; max-width: none; } }',
+
+      /* hover-эффекты — ТОЛЬКО там, где есть настоящая мышь.',
+         на телефоне это убирает застрявшую белую подсветку после тапа */
+      '@media (hover: hover) {',
+      '  .bt-gchip:hover { background: rgba(107,79,79,0.10); }',
+      '  .bt-gchip--on:hover { background: ' + cfg.colorAccent + '; }',
+      '  .bt-drop__toggle:hover { background: rgba(255,255,255,0.85); } }',
 
       '@media (prefers-reduced-motion: reduce) {',
-      '  .bt-card, .bt-card--ghost, .bt-chip { transition: none; animation: none; } }',
+      '  .bt-card, .bt-card--ghost, .bt-drop__panel, .bt-drop__arrow { transition: none; animation: none; } }',
     ].join('\n');
 
     var tag = document.createElement('style');
@@ -535,23 +633,20 @@
     if (!cfg.fontsUrl || document.getElementById('bt-catalog-fonts')) return;
 
     var pre = document.createElement('link');
-    pre.rel = 'preconnect';
-    pre.href = 'https://fonts.gstatic.com';
+    pre.rel = 'preconnect'; pre.href = 'https://fonts.gstatic.com';
     pre.crossOrigin = 'anonymous';
     document.head.appendChild(pre);
 
     var link = document.createElement('link');
-    link.id = 'bt-catalog-fonts';
-    link.rel = 'stylesheet';
-    link.href = cfg.fontsUrl;
-    link.media = 'print';
+    link.id = 'bt-catalog-fonts'; link.rel = 'stylesheet';
+    link.href = cfg.fontsUrl; link.media = 'print';
     link.onload = function () { this.media = 'all'; };
     document.head.appendChild(link);
   }
 
 
   /* ============================================================
-     БЛОК 7. МЕЛОЧИ
+     БЛОК 8. МЕЛОЧИ
      ============================================================ */
 
   function merge(base, extra) {
