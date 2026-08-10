@@ -64,7 +64,7 @@
 
     /* -- поведение карточки -- */
     hoverLift:   3,
-    bottomShade: 0.16,   // затемнение низа карточки (вместо тени тумана). 0 — выключить
+    bottomShade: 0,      // затемнение низа карточки выключено (было костылём под старую светлую кнопку). >0 — включить
 
     /* -- что показываем -- */
     attrsOnCard: [],
@@ -823,23 +823,27 @@
       '  color:' + cfg.colorMuted + '; opacity:.6; }',
 
       /* кнопка «Хочу этот» — стеклянная, поверх всего, z выше открывашки */
-      /* «Хочу этот» — стеклянная, воздушная. В покое почти прозрачная с текстом бордо.
-         При наведении/тапе наливается бордовым и подсвечивается — тогда читается как действие. */
+      /* «Хочу этот» — стеклянная кнопка как на главной (bt-glass-btn).
+         В покое стекло, при наведении светлеет и приподнимается,
+         при нажатии УТОПАЕТ (сдвиг вниз + тень внутрь, будто вдавили). */
       '.bt-cta { position:relative; z-index:3; display:block; margin:0 ' + cfg.cardPadding + 'px ' + cfg.cardPadding + 'px;',
-      '  text-align:center; text-decoration:none; font-family:' + cfg.fontBody + '; font-size:12px; letter-spacing:1.6px;',
-      '  text-transform:uppercase; color:' + cfg.colorAccent + '; padding:13px 18px; border-radius:100px;',
-      '  background:rgba(255,255,255,0.35); -webkit-backdrop-filter:blur(8px) saturate(1.1);',
-      '  backdrop-filter:blur(8px) saturate(1.1); border:1px solid rgba(107,79,79,0.28);',
-      '  box-shadow:0 2px 10px rgba(90,65,65,0.06), inset 0 1px 0 rgba(255,255,255,0.5);',
-      '  transition:background .3s, color .3s, box-shadow .3s, transform .15s; }',
-      '@media (hover:hover){ .bt-cta:hover { background:' + cfg.colorAccent + '; color:#F6F0EB;',
-      '  border-color:' + cfg.colorAccent + '; box-shadow:0 8px 24px rgba(90,65,65,0.22); transform:translateY(-1px); } }',
-      /* на телефоне «оживание» по тапу через :active */
-      '.bt-cta:active { background:' + cfg.colorAccent + '; color:#F6F0EB; border-color:' + cfg.colorAccent + '; }',
+      '  text-align:center; text-decoration:none; font-family:' + cfg.fontBody + '; font-size:12px; font-weight:300;',
+      '  letter-spacing:1.5px; text-transform:uppercase; color:' + cfg.colorText + '; padding:14px 26px; border-radius:100px;',
+      '  background:rgba(255,255,255,0.10); -webkit-backdrop-filter:blur(14px) saturate(1.5) brightness(1.06);',
+      '  backdrop-filter:blur(14px) saturate(1.5) brightness(1.06);',
+      '  box-shadow:0 8px 32px rgba(90,65,65,0.10), inset 0 1px 0 rgba(255,255,255,0.55), 0 0 0 1px rgba(255,255,255,0.30);',
+      '  transition:all .4s cubic-bezier(0.16,1,0.3,1); }',
+      '@media (hover:hover){ .bt-cta:hover { background:rgba(255,255,255,0.18); transform:translateY(-2px);',
+      '  box-shadow:0 14px 40px rgba(90,65,65,0.14), inset 0 1px 0 rgba(255,255,255,0.7), 0 0 0 1px rgba(255,255,255,0.4); } }',
+      /* нажатие — утопление: кнопка вдавливается вниз, тень уходит внутрь */
+      '.bt-cta:active { transform:translateY(1px) scale(0.985); transition:all .12s ease;',
+      '  background:rgba(255,255,255,0.06);',
+      '  box-shadow:inset 0 2px 6px rgba(90,65,65,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 1px rgba(255,255,255,0.22); }',
       '.bt-cta--popup { margin:22px 0 0; }',
 
-      /* ВУАЛЬ: при наведении/тапе на карточку — притемняем соседей */
-      cfg.veilEnabled ? '@media (hover:hover){ .bt-grid:hover .bt-card:not(:hover) { filter:brightness(0.82) saturate(0.9); } }' : '',
+      /* ВУАЛЬ: при наведении на карточку соседей слегка ПРИПУДРИВАЕМ (молочная поволока),
+         а не гасим — цвет сохраняется, теряется только резкость */
+      cfg.veilEnabled ? '@media (hover:hover){ .bt-grid:hover .bt-card:not(:hover) { opacity:0.72; filter:saturate(0.96); } }' : '',
       /* при наведении/тапе — ореол ярче */
       '@media (hover:hover){ .bt-card:hover .bt-card__halo { opacity:' + cfg.haloActive + ';',
       '  box-shadow:0 14px 54px 8px rgba(var(--fam-rgb),0.95); } }',
