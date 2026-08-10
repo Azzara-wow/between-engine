@@ -823,12 +823,19 @@
       '  color:' + cfg.colorMuted + '; opacity:.6; }',
 
       /* кнопка «Хочу этот» — стеклянная, поверх всего, z выше открывашки */
+      /* «Хочу этот» — стеклянная, воздушная. В покое почти прозрачная с текстом бордо.
+         При наведении/тапе наливается бордовым и подсвечивается — тогда читается как действие. */
       '.bt-cta { position:relative; z-index:3; display:block; margin:0 ' + cfg.cardPadding + 'px ' + cfg.cardPadding + 'px;',
-      '  text-align:center; text-decoration:none; font-family:' + cfg.fontBody + '; font-size:12px; letter-spacing:1.4px;',
-      '  text-transform:uppercase; color:#F3EDE8; padding:13px 18px; border-radius:100px;',
-      '  background:rgba(107,79,79,0.92); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);',
-      '  border:1px solid rgba(255,255,255,0.18); transition:background .25s, transform .15s; }',
-      '@media (hover:hover){ .bt-cta:hover { background:' + cfg.colorAccent + '; transform:translateY(-1px); } }',
+      '  text-align:center; text-decoration:none; font-family:' + cfg.fontBody + '; font-size:12px; letter-spacing:1.6px;',
+      '  text-transform:uppercase; color:' + cfg.colorAccent + '; padding:13px 18px; border-radius:100px;',
+      '  background:rgba(255,255,255,0.35); -webkit-backdrop-filter:blur(8px) saturate(1.1);',
+      '  backdrop-filter:blur(8px) saturate(1.1); border:1px solid rgba(107,79,79,0.28);',
+      '  box-shadow:0 2px 10px rgba(90,65,65,0.06), inset 0 1px 0 rgba(255,255,255,0.5);',
+      '  transition:background .3s, color .3s, box-shadow .3s, transform .15s; }',
+      '@media (hover:hover){ .bt-cta:hover { background:' + cfg.colorAccent + '; color:#F6F0EB;',
+      '  border-color:' + cfg.colorAccent + '; box-shadow:0 8px 24px rgba(90,65,65,0.22); transform:translateY(-1px); } }',
+      /* на телефоне «оживание» по тапу через :active */
+      '.bt-cta:active { background:' + cfg.colorAccent + '; color:#F6F0EB; border-color:' + cfg.colorAccent + '; }',
       '.bt-cta--popup { margin:22px 0 0; }',
 
       /* ВУАЛЬ: при наведении/тапе на карточку — притемняем соседей */
