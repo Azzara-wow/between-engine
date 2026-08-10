@@ -54,8 +54,9 @@
     gap:         20,
 
     /* -- сетка -- */
-    minCardWidth: 260,
-    maxWidth:     1200,
+    minCardWidth: 300,   // шире карточки -> меньше в ряд, текст в меньше строк
+    maxWidth:     1180,
+    maxColumns:   3,     // не больше 3 в ряд даже на широком экране
 
     /* -- картинка -- */
     imageFit:   'cover',
@@ -358,13 +359,12 @@
              + filtersHtml()
              + '<div class="bt-bar"><span class="bt-count"></span>'
              +   '<button class="bt-reset" type="button">' + esc(cfg.resetText) + '</button></div>'
-             + '<div class="bt-grid" id="bt-grid"></div>'
-             + popupShellHtml();
+             + '<div class="bt-grid" id="bt-grid"></div>';
     root.innerHTML = html;
 
+    ensurePopup();        // попап живёт в <body>, а не внутри каталога
     bindFilters();
     bindGrid();
-    bindPopup();
     updateView();
   }
 
@@ -561,6 +561,7 @@
   function bindGrid() {
     var grid = root.querySelector('#bt-grid');
     if (!grid) return;
+
     grid.addEventListener('click', function (e) {
       // клик по «Хочу этот» — не открывать попап, пусть ссылка работает
       if (e.target.closest && e.target.closest('.bt-cta')) return;
@@ -569,6 +570,23 @@
       var card = opener.closest('.bt-card');
       if (card) openPopup(card.dataset.id);
     });
+
+    // на телефоне нет наведения — подсветку (ореол ярче + приподнятие)
+    // включаем на касание. Класс снимается, когда палец уходит.
+    grid.addEventListener('touchstart', function (e) {
+      var card = e.target.closest && e.target.closest('.bt-card');
+      var all = grid.querySelectorAll('.bt-card--active');
+      for (var i = 0; i < all.length; i++) all[i].classList.remove('bt-card--active');
+      if (card) card.classList.add('bt-card--active');
+    }, { passive: true });
+
+    grid.addEventListener('touchend', function () {
+      // небольшая задержка, чтобы подсветка успела «мигнуть» перед открытием попапа
+      setTimeout(function () {
+        var all = grid.querySelectorAll('.bt-card--active');
+        for (var i = 0; i < all.length; i++) all[i].classList.remove('bt-card--active');
+      }, 220);
+    }, { passive: true });
   }
 
 
@@ -576,24 +594,36 @@
      БЛОК 10. ПОПАП
      ============================================================ */
 
-  function popupShellHtml() {
-    return '<div class="bt-popup" id="bt-popup" aria-hidden="true">'
-         +   '<div class="bt-popup__overlay"></div>'
-         +   '<div class="bt-popup__box" role="dialog" aria-modal="true">'
-         +     '<button class="bt-popup__close" type="button" aria-label="' + esc(cfg.closeLabel) + '">\u00D7</button>'
-         +     '<div class="bt-popup__content"></div>'
-         +   '</div>'
-         + '</div>';
+  var popupEl = null;   // ссылка на узел попапа в <body>
+
+  // создаём попап ОДИН раз и кладём прямо в <body>.
+  // почему в body: Tilda вешает transform на родителей блока T123, из-за чего
+  // position:fixed внутри каталога привязывается не к экрану — попап уезжает.
+  // В body он привязан к экрану и на телефоне, и на компе.
+  function ensurePopup() {
+    if (popupEl && document.body.contains(popupEl)) return popupEl;
+    popupEl = document.createElement('div');
+    popupEl.className = 'bt-popup';
+    popupEl.id = 'bt-popup';
+    popupEl.setAttribute('aria-hidden', 'true');
+    popupEl.innerHTML =
+        '<div class="bt-popup__overlay"></div>'
+      + '<div class="bt-popup__box" role="dialog" aria-modal="true">'
+      +   '<button class="bt-popup__close" type="button" aria-label="' + esc(cfg.closeLabel) + '">\u00D7</button>'
+      +   '<div class="bt-popup__content"></div>'
+      + '</div>';
+    document.body.appendChild(popupEl);
+    bindPopup();
+    return popupEl;
   }
 
   function isPopupOpen() {
-    var p = root.querySelector('#bt-popup');
-    return p && p.classList.contains('bt-popup--open');
+    return popupEl && popupEl.classList.contains('bt-popup--open');
   }
 
   function openPopup(id) {
     var item = byId[id];
-    var p = root.querySelector('#bt-popup');
+    var p = ensurePopup();
     if (!item || !p) return;
 
     var color = familyColor(item);
@@ -647,7 +677,7 @@
   }
 
   function closePopup() {
-    var p = root.querySelector('#bt-popup');
+    var p = popupEl;
     if (!p) return;
     p.classList.remove('bt-popup--open');
     p.setAttribute('aria-hidden', 'true');
@@ -663,7 +693,7 @@
   }
 
   function bindPopup() {
-    var p = root.querySelector('#bt-popup');
+    var p = popupEl;
     if (!p) return;
     p.addEventListener('click', function (e) {
       if (e.target.closest && e.target.closest('.bt-cta')) return;   // ссылка работает
@@ -687,6 +717,8 @@
     var lift = cfg.hoverLift > 0
       ? '@media (hover:hover){ .bt-card:hover { transform: translateY(-' + cfg.hoverLift + 'px);'
         + ' box-shadow: 0 16px 36px rgba(90,65,65,0.12); } }'
+        + ' .bt-card--active { transform: translateY(-' + cfg.hoverLift + 'px);'
+        + ' box-shadow: 0 16px 36px rgba(90,65,65,0.12); }'
       : '';
 
     var css = [
@@ -751,21 +783,22 @@
       '  padding:4px 2px; text-decoration:underline; text-underline-offset:3px; }',
 
       /* -- сетка -- */
-      '.bt-grid { display:grid; gap:' + cfg.gap + 'px; position:relative;',
+      '.bt-grid { display:grid; gap:' + cfg.gap + 'px; position:relative; margin:0 auto;',
+      '  max-width:' + (cfg.maxColumns * (cfg.minCardWidth + cfg.gap)) + 'px;',
       '  grid-template-columns:repeat(auto-fill, minmax(' + cfg.minCardWidth + 'px, 1fr)); }',
-      '.bt-grid--empty { display:block; }',
+      '.bt-grid--empty { display:block; max-width:none; }',
 
       /* -- карточка -- */
-      '.bt-card { position:relative; background-color:' + cfg.colorCard + '; border-radius:' + cfg.cardRadius + 'px;',
-      '  overflow:hidden; box-shadow:0 8px 24px rgba(90,65,65,0.06);',
+      '.bt-card { position:relative; display:flex; flex-direction:column; background-color:' + cfg.colorCard + ';',
+      '  border-radius:' + cfg.cardRadius + 'px; overflow:hidden; box-shadow:0 8px 24px rgba(90,65,65,0.06);',
       '  transition:transform .35s cubic-bezier(0.16,1,0.3,1), box-shadow .35s ease, filter .35s ease; }',
       lift,
       /* затемнение низа — псевдоэлемент поверх, под текст и кнопку он не лезет (кнопка выше по z) */
       '.bt-card::after { content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;',
       '  background:' + shade + '; z-index:1; }',
 
-      '.bt-card__open { display:block; width:100%; text-align:left; background:none; border:none; padding:0;',
-      '  cursor:pointer; position:relative; z-index:2; font:inherit; color:inherit; }',
+      '.bt-card__open { display:flex; flex-direction:column; flex:1 1 auto; width:100%; text-align:left;',
+      '  background:none; border:none; padding:0; cursor:pointer; position:relative; z-index:2; font:inherit; color:inherit; }',
 
       '.bt-card__media { display:block; position:relative; padding:' + cfg.imagePad + 'px; }',
       '.bt-card__img { display:block; width:100%; aspect-ratio:1/1; object-fit:' + cfg.imageFit + ';',
@@ -774,20 +807,20 @@
       /* ОРЕОЛ: цветное свечение под картинкой, виден всегда, ярче при наведении/тапе */
       '.bt-card__halo { position:absolute; left:' + cfg.imagePad + 'px; right:' + cfg.imagePad + 'px;',
       '  top:' + cfg.imagePad + 'px; bottom:' + cfg.imagePad + 'px; border-radius:' + cfg.imageRadius + 'px;',
-      '  box-shadow:0 0 0 rgba(var(--fam-rgb),0); z-index:0; pointer-events:none;',
-      '  opacity:' + cfg.haloAlways + '; transition:opacity .4s ease, box-shadow .4s ease;',
-      '  box-shadow:0 6px 26px rgba(var(--fam-rgb),0.55); }',
+      '  z-index:0; pointer-events:none; opacity:' + cfg.haloAlways + ';',
+      '  transition:opacity .4s ease, box-shadow .4s ease;',
+      '  box-shadow:0 10px 44px 6px rgba(var(--fam-rgb),0.6); }',
 
-      '.bt-card__body { display:block; padding:0 ' + cfg.cardPadding + 'px ' + (cfg.cardPadding + 4) + 'px;',
-      '  position:relative; z-index:2; }',
+      '.bt-card__body { display:flex; flex-direction:column; flex:1 1 auto;',
+      '  padding:0 ' + cfg.cardPadding + 'px ' + (cfg.cardPadding + 4) + 'px; position:relative; z-index:2; }',
       '.bt-card__title { display:block; margin:0 0 8px; font-family:' + cfg.fontTitle + '; font-size:' + cfg.titleSize + 'px;',
       '  font-weight:' + cfg.titleWeight + '; line-height:1.25; color:' + cfg.colorText + '; }',
       '.bt-card__descr { display:block; margin:0; font-size:' + cfg.bodySize + 'px; font-weight:' + cfg.bodyWeight + ';',
       '  line-height:1.55; color:' + cfg.colorMuted + '; }',
       '.bt-card__meta { display:block; margin-top:12px; font-size:' + cfg.metaSize + 'px; letter-spacing:1.4px;',
       '  text-transform:uppercase; color:' + cfg.colorAccent + '; opacity:.75; }',
-      '.bt-card__hint { display:block; margin-top:10px; font-size:11px; letter-spacing:.4px; color:' + cfg.colorMuted + ';',
-      '  opacity:.6; }',
+      '.bt-card__hint { display:block; margin-top:auto; padding-top:12px; font-size:11px; letter-spacing:.4px;',
+      '  color:' + cfg.colorMuted + '; opacity:.6; }',
 
       /* кнопка «Хочу этот» — стеклянная, поверх всего, z выше открывашки */
       '.bt-cta { position:relative; z-index:3; display:block; margin:0 ' + cfg.cardPadding + 'px ' + cfg.cardPadding + 'px;',
@@ -802,7 +835,9 @@
       cfg.veilEnabled ? '@media (hover:hover){ .bt-grid:hover .bt-card:not(:hover) { filter:brightness(0.82) saturate(0.9); } }' : '',
       /* при наведении/тапе — ореол ярче */
       '@media (hover:hover){ .bt-card:hover .bt-card__halo { opacity:' + cfg.haloActive + ';',
-      '  box-shadow:0 10px 40px rgba(var(--fam-rgb),0.9); } }',
+      '  box-shadow:0 14px 54px 8px rgba(var(--fam-rgb),0.95); } }',
+      '.bt-card--active .bt-card__halo { opacity:' + cfg.haloActive + ';',
+      '  box-shadow:0 14px 54px 8px rgba(var(--fam-rgb),0.95); }',
 
       /* заглушки */
       '.bt-card--ghost { box-shadow:none; }',
@@ -868,6 +903,8 @@
       '    max-height:92vh; border-radius:24px 24px 0 0; animation:bt-sheet .35s cubic-bezier(0.16,1,0.3,1) forwards; }',
       '  .bt-popup__body { padding:20px 20px 0; }',
       '  .bt-popup__title { font-size:26px; }',
+      /* на телефоне карточки идут по одной — затемнение низа не нужно */
+      '  .bt-card::after { display:none; }',
       '}',
 
       '@keyframes bt-fade { to { opacity:1; } }',
