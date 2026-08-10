@@ -57,6 +57,7 @@
     minCardWidth: 300,   // шире карточки -> меньше в ряд, текст в меньше строк
     maxWidth:     1180,
     maxColumns:   3,     // не больше 3 в ряд даже на широком экране
+    contentWidth: 900,   // общая ширина каталога на десктопе (под ширину текста страницы). 0 — по maxColumns
 
     /* -- картинка -- */
     imageFit:   'cover',
@@ -727,7 +728,7 @@
       : '';
 
     var css = [
-      '.bt-catalog { box-sizing:border-box; width:100%; max-width:' + cfg.maxWidth + 'px;',
+      '.bt-catalog { box-sizing:border-box; width:100%; max-width:' + (cfg.contentWidth > 0 ? cfg.contentWidth : cfg.maxWidth) + 'px;',
       '  margin:0 auto; padding:0 16px; background:' + cfg.colorBg + '; font-family:' + cfg.fontBody + '; }',
       '.bt-catalog *, .bt-catalog *::before, .bt-catalog *::after { box-sizing:border-box; }',
 
@@ -735,7 +736,7 @@
       '  color:' + cfg.colorMuted + '; letter-spacing:.3px; margin:0 0 24px; }',
 
       /* -- фильтры -- */
-      '.bt-filters { margin:0 0 16px; }',
+      '.bt-filters { margin:8px 0 18px; }',
       '.bt-gender { display:inline-flex; gap:4px; padding:4px; background:rgba(255,255,255,0.45);',
       '  border-radius:100px; border:1px solid rgba(107,79,79,0.15); margin-bottom:12px; }',
       '.bt-gchip { font-family:' + cfg.fontBody + '; font-size:13px; color:' + cfg.colorText + ';',
@@ -780,16 +781,16 @@
       '  font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:#F3EDE8; background:' + cfg.colorAccent + ';',
       '  border:none; border-radius:10px; cursor:pointer; }',
 
-      '.bt-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 20px; }',
+      '.bt-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 16px; }',
       '.bt-count { font-size:' + cfg.metaSize + 'px; letter-spacing:1.2px; text-transform:uppercase;',
-      '  color:' + cfg.colorMuted + '; opacity:.8; }',
+      '  color:' + cfg.colorMuted + '; opacity:1; }',
       '.bt-reset { font-family:' + cfg.fontBody + '; font-size:' + cfg.metaSize + 'px; letter-spacing:1.2px;',
       '  text-transform:uppercase; color:' + cfg.colorAccent + '; background:none; border:none; cursor:pointer;',
       '  padding:4px 2px; text-decoration:underline; text-underline-offset:3px; }',
 
       /* -- сетка -- */
       '.bt-grid { display:grid; gap:' + cfg.gap + 'px; position:relative; margin:0 auto;',
-      '  max-width:' + (cfg.maxColumns * (cfg.minCardWidth + cfg.gap)) + 'px;',
+      (cfg.contentWidth > 0 ? '  max-width:none;' : '  max-width:' + (cfg.maxColumns * (cfg.minCardWidth + cfg.gap)) + 'px;'),
       '  grid-template-columns:repeat(auto-fill, minmax(' + cfg.minCardWidth + 'px, 1fr)); }',
       '.bt-grid--empty { display:block; max-width:none; }',
 
@@ -835,7 +836,7 @@
 
       '.bt-card__body { display:flex; flex-direction:column; flex:1 1 auto;',
       '  padding:0 ' + cfg.cardPadding + 'px ' + (cfg.cardPadding + 4) + 'px; position:relative; z-index:2; }',
-      '.bt-card__title { display:block; margin:0 0 8px; font-family:' + cfg.fontTitle + '; font-size:' + cfg.titleSize + 'px;',
+      '.bt-card__title { display:block; margin:0 0 12px; font-family:' + cfg.fontTitle + '; font-size:' + cfg.titleSize + 'px;',
       '  font-weight:' + cfg.titleWeight + '; line-height:1.25; color:' + cfg.colorText + '; }',
       '.bt-card__descr { display:block; margin:0; font-size:' + cfg.bodySize + 'px; font-weight:' + cfg.bodyWeight + ';',
       '  line-height:1.55; color:' + cfg.colorMuted + '; }',
