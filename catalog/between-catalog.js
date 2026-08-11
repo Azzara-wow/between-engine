@@ -70,8 +70,35 @@
     /* -- что показываем -- */
     attrsOnCard: [],
     showPrice:   false,
+    showDescrOnCard: false,   // ноты (descr) на карточке. Парфюм — false (в попапе),
+                              // аромадизайн — true (там ноты и есть содержание карточки).
     note:        '',
     tapHint:     'нажмите, чтобы узнать историю',   // подсказка на карточке; '' — убрать
+
+    /* ============================================================
+       ИКОНКИ ФОРМАТОВ (для аромадизайна)
+       Включается, только если задан formatsKey. На парфюме пусто → слой не работает.
+       formatsKey — по какой характеристике рисуем (у аромадизайна «Вариант аромата»).
+       formatIcons — ЗАКРЫТЫЙ справочник: название формата → SVG (viewBox 0 0 48 48).
+       Иконки рисуются в порядке справочника (одинаково на всех карточках),
+       подсвечиваются только те форматы, что реально есть у товара.
+       Добавить формат — допишите строку в справочник, код трогать не надо.
+       ============================================================ */
+    formatsKey:   '',
+    formatIcons:  {
+      'Свеча':                    '<rect x="15" y="18" width="18" height="24" rx="2"/><line x1="24" y1="18" x2="24" y2="10"/><path d="M24 10 Q20 5 24 1 Q28 5 24 10Z"/>',
+      'Диффузор':                 '<path d="M17 42 L19 24 L29 24 L31 42Z"/><ellipse cx="24" cy="24" rx="5" ry="2"/><line x1="22" y1="24" x2="18" y2="4"/><line x1="26" y1="24" x2="30" y2="4"/><line x1="24" y1="24" x2="24" y2="7"/>',
+      'Рум-спрей':                '<rect x="16" y="20" width="16" height="22" rx="2"/><rect x="19" y="12" width="10" height="8"/><rect x="18" y="5" width="8" height="7" rx="2"/><circle cx="34" cy="9" r="1"/><circle cx="39" cy="6" r="1"/><circle cx="38" cy="12" r="1"/>',
+      'Автопарфюм':               '<path d="M24 4 L33 24 L28 24 L35 40 L27 40 L27 44 L21 44 L21 40 L13 40 L20 24 L15 24Z"/>',
+      'Мыло жидкое':              '<rect x="15" y="18" width="18" height="24" rx="3"/><rect x="20" y="10" width="8" height="8"/><path d="M28 12 L38 12 L38 18"/>',
+      'Мыло твёрдое':             '<rect x="10" y="20" width="28" height="18" rx="5"/><path d="M18 27 Q24 23 30 27"/><circle cx="29" cy="25" r="1.6"/>',
+      'Средства ухода за телом':  '<rect x="17" y="14" width="14" height="28" rx="3"/><rect x="20" y="7" width="8" height="7" rx="2"/><line x1="21" y1="24" x2="27" y2="24"/><line x1="21" y1="30" x2="27" y2="30"/>',
+      'Массажные свечи и масла':  '<rect x="12" y="20" width="18" height="22" rx="2"/><line x1="21" y1="20" x2="21" y2="12"/><path d="M21 12 Q17 7 21 3 Q25 7 21 12Z"/><path d="M38 24 Q42 32 38 36 Q34 32 38 24Z"/>',
+    },
+    formatIconColor: '#4A3430',   // цвет обводки иконок форматов
+
+    /* -- CSS-фильтр на картинку (сочность). Аромадизайн — насыщеннее; парфюм — '' (без изменений) -- */
+    imageFilter:  '',
 
     /* ============================================================
        КНОПКА «ХОЧУ ЭТОТ» → телеграм с готовым сообщением
@@ -338,6 +365,23 @@
     return (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255);
   }
 
+  // строка иконок форматов: идём ПО СПРАВОЧНИКУ (одинаковый порядок на всех
+  // карточках), рисуем только те форматы, что реально есть у товара.
+  // Пусто, если formatsKey не задан или у товара нет форматов из справочника.
+  function formatsHtml(item) {
+    if (!cfg.formatsKey || !cfg.formatIcons) return '';
+    var have = (item.attrs && item.attrs[cfg.formatsKey]) || [];
+    if (!have.length) return '';
+    var icons = '';
+    for (var name in cfg.formatIcons) {
+      if (have.indexOf(name) === -1) continue;
+      icons += '<span class="bt-format-ico" title="' + esc(name) + '">'
+             +   '<svg viewBox="0 0 48 48" aria-hidden="true">' + cfg.formatIcons[name] + '</svg>'
+             + '</span>';
+    }
+    return icons ? '<div class="bt-formats">' + icons + '</div>' : '';
+  }
+
 
   /* ============================================================
      БЛОК 7. РИСОВАНИЕ КАТАЛОГА
@@ -450,12 +494,19 @@
     var cta = ctaButtonHtml(item, 'card');
     var hint = cfg.tapHint ? '<span class="bt-card__hint">' + esc(cfg.tapHint) + '</span>' : '';
 
+    // ноты на карточке — только если включено флагом (аромадизайн — да, парфюм — нет)
+    var descr = (cfg.showDescrOnCard && item.descr)
+      ? '<span class="bt-card__descr">' + esc(item.descr) + '</span>' : '';
+
+    // иконки форматов — только если задан formatsKey (аромадизайн)
+    var formats = formatsHtml(item);
+
     return '<article class="bt-card" data-id="' + esc(item.id) + '"' + styleVars + '>'
          +   '<button class="bt-card__open" type="button" aria-label="' + esc(item.title) + '">'
          +     '<span class="bt-card__media' + famClass + '">' + media + '</span>'
          +     '<span class="bt-card__body">'
          +       '<span class="bt-card__title">' + esc(item.title) + '</span>'
-         +       meta + hint
+         +       descr + formats + meta + hint
          +     '</span>'
          +   '</button>'
          +   cta
@@ -645,17 +696,23 @@
       ? '<div class="bt-popup__media"><img src="' + esc(item.image) + '" alt="' + esc(item.title) + '"></div>'
       : '';
 
-    // характеристики строкой (все, что есть у товара)
+    // характеристики строкой (все, что есть у товара).
+    // Форматную характеристику (formatsKey) сюда НЕ включаем — она покажется иконками ниже.
     var chips = '';
     if (item.attrs) {
       var line = [];
       for (var k in item.attrs) {
         if (k === cfg.genderKey) continue;
+        if (cfg.formatsKey && k === cfg.formatsKey) continue;
         var vals = item.attrs[k];
         if (vals && vals.length) line.push(vals.join(', '));
       }
       if (line.length) chips = '<div class="bt-popup__attrs">' + esc(line.join('  \u00B7  ')) + '</div>';
     }
+
+    // иконки форматов в попапе — те же, что на карточке (если задан formatsKey)
+    var formats = formatsHtml(item);
+    var formatsBlock = formats ? '<div class="bt-popup__formats">' + formats + '</div>' : '';
 
     var textBlock = item.text
       ? '<div class="bt-popup__text">' + paragraphs(item.text) + '</div>' : '';
@@ -668,6 +725,7 @@
       + '<div class="bt-popup__body">'
       +   '<h3 class="bt-popup__title">' + esc(item.title) + '</h3>'
       +   chips
+      +   formatsBlock
       +   textBlock
       +   notesBlock
       +   ctaButtonHtml(item, 'popup')
@@ -808,7 +866,7 @@
          подъём небольшой, чтобы карточка оставалась спокойной и дорогой. */
       '.bt-card__img { display:block; width:100%; aspect-ratio:1/1; object-fit:' + cfg.imageFit + ';',
       '  border-radius:' + cfg.imageRadius + 'px; background:rgba(140,120,110,0.08); position:relative; z-index:1;',
-      '  transform:translateY(-4px);',
+      '  transform:translateY(-4px);' + (cfg.imageFilter ? ' filter:' + cfg.imageFilter + ';' : ''),
       '  box-shadow:0 14px 26px -8px rgba(44,36,32,0.28), 0 6px 12px -6px rgba(44,36,32,0.20); }',
 
       /* ============ ПОДСВЕТКА ПО СЕМЕЙСТВАМ (как в исходном коде) ============
@@ -842,6 +900,12 @@
       '  text-transform:uppercase; color:' + cfg.colorAccent + '; opacity:.75; }',
       '.bt-card__hint { display:block; margin-top:auto; padding-top:12px; font-size:11px; letter-spacing:.4px;',
       '  color:' + cfg.colorMuted + '; opacity:.6; }',
+
+      /* -- иконки форматов (аромадизайн): тихий линейный ряд под нотами -- */
+      '.bt-formats { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; }',
+      '.bt-format-ico { width:26px; height:26px; display:flex; align-items:center; justify-content:center; }',
+      '.bt-format-ico svg { width:26px; height:26px; display:block; fill:none;',
+      '  stroke:' + cfg.formatIconColor + '; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }',
 
       /* кнопка «Хочу этот» — стеклянная, поверх всего, z выше открывашки */
       /* «Хочу этот» — стеклянная кнопка как на главной (bt-glass-btn).
@@ -901,13 +965,17 @@
       '@media (hover:hover){ .bt-popup__close:hover { background:rgba(255,255,255,0.18); } }',
       '.bt-popup__close:active { transform:scale(0.94); box-shadow:inset 0 2px 6px rgba(90,65,65,0.18); }',
       '.bt-popup__media { padding:14px 14px 0; }',
-      '.bt-popup__media img { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:' + cfg.imageRadius + 'px; }',
+      '.bt-popup__media img { display:block; width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:' + cfg.imageRadius + 'px;'
+        + (cfg.imageFilter ? ' filter:' + cfg.imageFilter + ';' : '') + ' }',
       '.bt-popup__box[data-fam="1"] .bt-popup__media img { box-shadow:0 10px 40px rgba(var(--fam-rgb),0.5); }',
       '.bt-popup__body { padding:22px 28px 0; }',
       '.bt-popup__title { margin:0 0 10px; font-family:' + cfg.fontTitle + '; font-weight:600; font-size:30px;',
       '  line-height:1.15; color:' + cfg.colorText + '; }',
       '.bt-popup__attrs { font-size:' + cfg.metaSize + 'px; letter-spacing:1.4px; text-transform:uppercase;',
       '  color:' + cfg.colorAccent + '; opacity:.8; margin-bottom:18px; }',
+      '.bt-popup__formats { margin:0 0 18px; }',
+      '.bt-popup__formats .bt-formats { margin-top:0; gap:16px; }',
+      '.bt-popup__formats .bt-format-ico, .bt-popup__formats .bt-format-ico svg { width:30px; height:30px; }',
       '.bt-popup__text { font-size:16px; line-height:1.7; color:' + cfg.colorText + '; }',
       '.bt-popup__text p { margin:0 0 14px; }',
       '.bt-popup__notes { margin-top:18px; padding-top:16px; border-top:1px solid rgba(107,79,79,0.15); }',
