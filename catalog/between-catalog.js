@@ -455,7 +455,6 @@
          +     '<span class="bt-card__media' + famClass + '">' + media + '</span>'
          +     '<span class="bt-card__body">'
          +       '<span class="bt-card__title">' + esc(item.title) + '</span>'
-         +       (item.descr ? '<span class="bt-card__descr">' + esc(item.descr) + '</span>' : '')
          +       meta + hint
          +     '</span>'
          +   '</button>'
@@ -804,8 +803,13 @@
       '  background:none; border:none; padding:0; cursor:pointer; position:relative; z-index:2; font:inherit; color:inherit; }',
 
       '.bt-card__media { display:block; position:relative; padding:' + cfg.imagePad + 'px; }',
+      /* картинка статично «парит»: лёгкий подъём + мягкая нейтральная тень под ней.
+         тень нейтральная (не цветная) — цвет семейства остаётся ореолом на обёртке.
+         подъём небольшой, чтобы карточка оставалась спокойной и дорогой. */
       '.bt-card__img { display:block; width:100%; aspect-ratio:1/1; object-fit:' + cfg.imageFit + ';',
-      '  border-radius:' + cfg.imageRadius + 'px; background:rgba(140,120,110,0.08); position:relative; z-index:1; }',
+      '  border-radius:' + cfg.imageRadius + 'px; background:rgba(140,120,110,0.08); position:relative; z-index:1;',
+      '  transform:translateY(-4px);',
+      '  box-shadow:0 14px 26px -8px rgba(44,36,32,0.28), 0 6px 12px -6px rgba(44,36,32,0.20); }',
 
       /* ============ ПОДСВЕТКА ПО СЕМЕЙСТВАМ (как в исходном коде) ============
          Все три слоя — на обёртке картинки .bt-card__media.bt-veil.
@@ -821,18 +825,12 @@
 
       /* ОРЕОЛ: цветное свечение вокруг картинки, виден всегда, ярче при наведении/тапе */
       '.bt-veil { transition:box-shadow .5s ease; border-radius:' + cfg.imageRadius + 'px; }',
-      '.bt-veil::before, .bt-veil::after { border-radius:' + cfg.imageRadius + 'px; }',
-      '.bt-card__media.bt-veil { box-shadow:0 6px 30px 4px rgba(var(--fam-rgb),0.55); }',
+      '.bt-veil::after { border-radius:' + cfg.imageRadius + 'px; }',
+      '.bt-card__media.bt-veil { box-shadow:0 6px 30px 4px rgba(var(--fam-rgb),0.42); }',
       '@media (hover:hover){ .bt-card:hover .bt-card__media.bt-veil { box-shadow:0 8px 40px 8px rgba(var(--fam-rgb),0.78); } }',
       '.bt-card--active .bt-card__media.bt-veil { box-shadow:0 8px 40px 8px rgba(var(--fam-rgb),0.78); }',
 
-      /* ПОЛОСКА под картинкой: градиент цвета семейства, расширяется при наведении */
-      '.bt-card__media.bt-veil::before { content:""; position:absolute; left:24%; right:24%;',
-      '  bottom:' + (cfg.imagePad - 5) + 'px; height:3px; border-radius:3px; z-index:3; pointer-events:none;',
-      '  transition:left .4s ease, right .4s ease, height .4s ease;',
-      '  background:linear-gradient(90deg, transparent, var(--fam), transparent); }',
-      '@media (hover:hover){ .bt-card:hover .bt-card__media.bt-veil::before { left:12%; right:12%; height:4px; } }',
-      '.bt-card--active .bt-card__media.bt-veil::before { left:12%; right:12%; height:4px; }',
+      /* ПОЛОСКА семейства убрана — карточка держится на ореоле, стало воздушнее */
 
       '.bt-card__body { display:flex; flex-direction:column; flex:1 1 auto;',
       '  padding:0 ' + cfg.cardPadding + 'px ' + (cfg.cardPadding + 4) + 'px; position:relative; z-index:2; }',
@@ -948,8 +946,7 @@
          Карточки живые сразу, без тапа. (hover:none ловит именно тач.) */
       '@media (hover: none) {',
       '  .bt-veil::after { opacity:0.4; }',                          // вуаль лёгкая, не глухая
-      '  .bt-card__media.bt-veil { box-shadow:0 7px 34px 6px rgba(var(--fam-rgb),0.68); }',  // ореол ярче
-      '  .bt-card__media.bt-veil::before { left:14%; right:14%; height:4px; }',              // полоска шире
+      '  .bt-card__media.bt-veil { box-shadow:0 7px 34px 6px rgba(var(--fam-rgb),0.52); }',  // ореол приглушён в покое
       /* при касании вуаль дораскрывается — картинка на миг проясняется целиком */
       '  .bt-card--active .bt-veil::after { opacity:0; }',
       '  .bt-card--active .bt-card__media.bt-veil { box-shadow:0 9px 44px 9px rgba(var(--fam-rgb),0.85); }',
